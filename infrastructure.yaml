@@ -1,0 +1,75 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: ECR Repository and infrastructure for Brain Tasks App
+
+Resources:
+  ECRRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: brain-tasks-app
+      ImageScanningConfiguration:
+        ScanOnPush: true
+
+  CodeBuildServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: brain-tasks-codebuild-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess
+
+  CodePipelineServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: brain-tasks-codepipeline-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codepipeline.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess
+
+  ArtifactsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      VersioningConfiguration:
+        Status: Enabled
+
+  AppLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/eks/brain-tasks-app
+      RetentionInDays: 30
+
+  CodeBuildLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/codebuild/brain-tasks-app
+      RetentionInDays: 14
+
+Outputs:
+  ECRRepositoryURI:
+    Description: ECR Repository URI
+    Value: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/brain-tasks-app"
+    Export:
+      Name: brain-tasks-ecr-uri
+
+  ArtifactsBucketName:
+    Description: S3 Bucket for Pipeline Artifacts
+    Value: !Ref ArtifactsBucket
+    Export:
+      Name: brain-tasks-artifacts-bucket
+
+  CodeBuildRoleArn:
+    Description: CodeBuild IAM Role ARN
+    Value: !GetAtt CodeBuildServiceRole.Arn
+    Export:
+      Name: brain-tasks-codebuild-role-arn

@@ -1,0 +1,38 @@
+version: 0.2
+
+env:
+  variables:
+    AWS_DEFAULT_REGION: "us-east-1"
+    APP_NAME: "brain-tasks-app"
+    EKS_CLUSTER_NAME: "brain-tasks-cluster"
+  parameter-store:
+    ECR_REPO_URI: "/brain-tasks/ECR_REPO_URI"
+
+phases:
+  install:
+    commands:
+      - curl -o kubectl https://amazon-eks.s3.us-west-2.amazonaws.com/1.27.1/2023-04-19/bin/linux/amd64/kubectl
+      - chmod +x ./kubectl && mv ./kubectl /usr/local/bin/kubectl
+      - aws eks update-kubeconfig --name brain-tasks-cluster --region us-east-1
+
+  pre_build:
+    commands:
+      - aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $ECR_REPO_URI
+      - IMAGE_TAG=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+
+  build:
+    commands:
+      - docker build -t $APP_NAME:$IMAGE_TAG .
+      - docker tag $APP_NAME:$IMAGE_TAG $ECR_REPO_URI:$IMAGE_TAG
+      - docker tag $APP_NAME:$IMAGE_TAG $ECR_REPO_URI:latest
+
+  post_build:
+    commands:
+      - docker push $ECR_REPO_URI:$IMAGE_TAG
+      - docker push $ECR_REPO_URI:latest
+      - sed -i "s|YOUR_ECR_URI/brain-tasks-app:latest|$ECR_REPO_URI:$IMAGE_TAG|g" k8s/deployment.yaml
+      - kubectl apply -f k8s/deployment.yaml
+      - kubectl apply -f k8s/service.yaml
+      - kubectl apply -f k8s/hpa.yaml
+      - kubectl rollout status deployment/$APP_NAME --timeout=300s
+      - kubectl get svc brain-tasks-service
