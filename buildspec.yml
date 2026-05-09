@@ -1,25 +1,27 @@
 version: 0.2
+
 phases:
   pre_build:
     commands:
       - echo Logging in to Amazon ECR...
       - aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 562395968623.dkr.ecr.us-east-1.amazonaws.com
-      - echo Updating kubeconfig...
       - aws eks update-kubeconfig --name trend-eks --region us-east-1
-      - kubectl config view
-      - kubectl get nodes || echo "kubectl nodes check done"
+
   build:
     commands:
       - echo Building Docker image...
       - docker build -t brain-tasks-app .
       - docker tag brain-tasks-app:latest 562395968623.dkr.ecr.us-east-1.amazonaws.com/brain-tasks-app:latest
+
   post_build:
     commands:
       - echo Pushing image to ECR...
       - docker push 562395968623.dkr.ecr.us-east-1.amazonaws.com/brain-tasks-app:latest
       - echo Deploying to EKS...
-      - TOKEN=$(aws eks get-token --cluster-name trend-eks --region us-east-1 --query 'status.token' --output text)
-      - kubectl apply -f k8s/deployment.yaml --validate=false --token=$TOKEN
-      - kubectl apply -f k8s/service.yaml --validate=false --token=$TOKEN
-      - kubectl get pods --token=$TOKEN
-      - kubectl get svc --token=$TOKEN
+      - kubectl apply -f k8s/deployment.yaml
+      - kubectl apply -f k8s/service.yaml
+      - kubectl rollout status deployment/brain-tasks-app --timeout=120s
+
+artifacts:
+  files:
+    - '**/*'
