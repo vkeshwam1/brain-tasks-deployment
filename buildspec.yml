@@ -5,7 +5,7 @@ phases:
       - echo Logging in to Amazon ECR...
       - aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 562395968623.dkr.ecr.us-east-1.amazonaws.com
       - echo Updating kubeconfig...
-      - aws eks update-kubeconfig --name trend-eks --region us-east-1 --role-arn arn:aws:iam::562395968623:role/codebuild-brain-tasks-app-build-service-role
+      - aws eks update-kubeconfig --name trend-eks --region us-east-1
   build:
     commands:
       - echo Building Docker image...
@@ -18,6 +18,5 @@ phases:
       - echo Deploying to EKS...
       - kubectl apply -f k8s/deployment.yaml --validate=false
       - kubectl apply -f k8s/service.yaml --validate=false
-      - kubectl rollout status deployment/brain-tasks-app
       - kubectl get pods
       - kubectl get svc
